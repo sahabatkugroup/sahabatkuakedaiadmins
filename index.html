@@ -622,6 +622,38 @@
                 font-size: 11px;
             }
         }
+        /* Tambahkan di bagian <style> di index (6).html */
+        
+        /* Kontainer untuk mengatur posisi relatif (relative positioning) */
+        .menu-image-container {
+            position: relative; 
+            overflow: hidden; /* Penting agar badge tetap di dalam batas gambar */
+            /* Pastikan tinggi/lebar diwarisi dari .menu-gallery-item jika perlu */
+        }
+        
+        /* Style untuk Badge Skor Popularitas */
+        .popularity-score-badge {
+            position: absolute;
+            top: 5px; /* Jarak dari atas */
+            left: 5px; /* Jarak dari kiri */
+            
+            /* Style Visual */
+            background-color: #00CAFF; /* Warna primer (biru) */
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 4px;
+            z-index: 10; /* Pastikan di atas gambar */
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Pastikan gambar mengisi kontainer */
+        .menu-image-container img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
     </style>
 </head>
 <body>
@@ -719,7 +751,11 @@
                 <div class="form-group" style="margin-bottom: 15px;"><label for="menuName">Nama Menu:</label><input type="text" id="menuName" required></div>
                 
                 <div class="form-group" style="margin-bottom: 15px;"><label for="menuPriceDisplay">Harga (cth: 10.000):</label><input type="text" id="menuPriceDisplay" placeholder="cth: 10.000" required><input type="hidden" id="menuPrice"></div>
-                
+                <div class="form-group">
+                    <label>Skor Popularitas (Angka Penjualan/View):</label>
+                    <input type="number" id="menuPopularityScore" placeholder="Cth: 550 (Hanya Angka)" min="0">
+                    <small style="color:#6c757d;">*Angka ini digunakan untuk menentukan urutan acak berbobot.</small>
+                </div>
                 <div class="form-group" style="margin-bottom: 15px;">
                     <label>Kategori Menu (Pilih/Ketuk):</label>
                     <div class="category-options" id="menuCategoryOptions" style="display: flex; flex-wrap: wrap; gap: 8px; border: 1px solid #ddd; padding: 10px; border-radius: 8px; background-color: var(--bg-light);">
@@ -774,6 +810,10 @@
             <span class="close-btn" onclick="closeModal('viewMenuModal')">&times;</span>
             <h3 class="primary-color" style="margin-bottom: 15px;"><i class="fas fa-list"></i> Daftar Menu Kedai: <span id="viewMenuKedaiName"></span></h3>
             <button class="btn-primary btn-sm" id="addMenuFromViewModal"><i class="fas fa-plus"></i> Tambah Menu Baru</button>
+            <div class="form-group" style="margin-bottom: 10px;">
+                <input type="text" id="menuSearchInput" placeholder="Cari Nama Menu..." 
+                       style="width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px;">
+            </div>
             <div id="viewMenuItemsList" class="menu-gallery-list">
                 <p style="text-align: center; color: #999;">Memuat daftar menu...</p>
             </div>
@@ -834,11 +874,13 @@
         // **CROPPING GLOBAL VARIABLES**
         let currentCropper = null;
         let imageToCropType = ''; // 'restaurant' or 'menu'
+        // Di awal bagian <script> (Global)
+        let CURRENT_VIEW_MENUS = {}; // Menyimpan menu yang sedang dilihat
 
         // Kategori Master
         const MENU_CATEGORIES = [
             'Jajanan', 'Minuman Dingin', 'Makanan Manis', 'Cepat Saji', 'Aneka Nasi', 'Ayam & Bebek', 'Kopi', 'Non-Kopi',
-            'Bakmi', 'Seafood', 'Roti', 'Sate', 'Bakso & Soto', 'Martabak', 'Gorengan','Cemilan', 'Mie', 'Jus', 'Es Teh','Lauk','Ikan','Nasi Goreng','Seblak','Sarapan Pagi','Ayam Geprek','Minuman Kekinian','Chiken'
+            'Bakmi', 'Seafood', 'Roti', 'Sate', 'Bakso & Soto', 'Martabak', 'Gorengan','Cemilan', 'Mie', 'Jus', 'Es Teh','Lauk','Ikan','Nasi Goreng','Seblak','Sarapan Pagi','Ayam Geprek','Minuman Kekinian','Chicken','Toping'
         ];
 
         // --- FUNGSI UTILITY & UI ---
@@ -1254,17 +1296,18 @@
             const restaurantId = document.getElementById('menuRestaurantId').value;
             const name = document.getElementById('menuName').value;
             const priceRaw = document.getElementById('menuPrice').value;
+            const menuPopularityScore = parseInt(document.getElementById('menuPopularityScore').value.trim()) || 0;
             const categories = selectedMenuCategories;
             const kedaiName = document.getElementById('menuTargetKedaiName').textContent;
             
             const imageFileInput = document.getElementById('menuImageFile');
             const fileToUpload = imageFileInput.croppedFile || imageFileInput.files[0];
-
+        
             if (!name || !priceRaw || categories.length === 0) { notify('Mohon isi Nama Menu, Harga, dan pilih minimal 1 Kategori!', 'error'); return; }
             
             const price = parseInt(priceRaw);
             let imageUrl = MENUS[id]?.image || DEFAULT_MENU_IMAGE;
-
+        
             if (fileToUpload) { 
                 imageUrl = await uploadImageToCloudinary(fileToUpload); 
                 imageFileInput.croppedFile = null; 
@@ -1273,11 +1316,18 @@
                     imageUrl = MENUS[id]?.image || DEFAULT_MENU_IMAGE;
                 }
             }
-
+        
             const data = {
-                id, restaurantId, name, price, category: categories, image: imageUrl, updatedAt: new Date().toISOString()
+                id, 
+                restaurantId, 
+                name, 
+                price, 
+                category: categories, 
+                image: imageUrl, 
+                updatedAt: new Date().toISOString(), // 👈 TAMBAHKAN KOMA DI SINI!
+                popularityScore: menuPopularityScore // 👈 Properti baru
             };
-
+        
             MENU_REF.child(id).set(data)
                 .then(() => { 
                     notify(`Menu ${name} di ${kedaiName} berhasil disimpan!`, 'success'); 
@@ -1291,10 +1341,10 @@
         };
 
         window.editMenu = (id) => {
-            const m = MENUS[id];
+            const m = MENUS[id]; // Variabel 'm' menampung data menu
             if (!m) return;
             const r = RESTAURANTS[m.restaurantId];
-
+        
             document.getElementById('menuId').value = m.id;
             document.getElementById('menuRestaurantId').value = m.restaurantId;
             document.getElementById('menuName').value = m.name;
@@ -1302,12 +1352,17 @@
             document.getElementById('menuPriceDisplay').value = formatRupiah(m.price);
             document.getElementById('menuPrice').value = m.price;
             
+            // 🟢 BARIS YANG DIKOREKSI 🟢
+            // Menggunakan variabel 'm' yang benar, bukan 'menu'.
+            // Jika m.popularityScore adalah undefined/null/0, diisi dengan string kosong.
+            document.getElementById('menuPopularityScore').value = m.popularityScore || ''; 
+            
             document.getElementById('menuTargetKedaiName').textContent = r?.name || 'N/A';
             document.getElementById('menuImagePreview').src = m.image || DEFAULT_MENU_IMAGE;
             document.getElementById('menuImagePreview').style.display = 'block';
             document.getElementById('menuImageFile').value = ''; 
             delete document.getElementById('menuImageFile').croppedFile; 
-
+        
             renderMenuCategoryOptions(m.category || []);
             closeModal('viewMenuModal'); // Tutup modal menu list sebelum buka modal edit
             openModal('menuModal', `Edit Menu: ${m.name}`);
@@ -1521,48 +1576,90 @@
                 listContainer.appendChild(item);
             });
         };
-        
-        // --- FUNGSI BARU: TAMPILKAN DAFTAR MENU DI MODAL ---
-        window.viewRestaurantMenus = (restaurantId, restaurantName) => {
+        // --- FUNGSI BARU: RENDER DAFTAR MENU YANG DIFILTER ---
+        const renderFilteredMenus = (menuList) => {
             const listContainer = document.getElementById('viewMenuItemsList');
-            listContainer.innerHTML = '';
-            document.getElementById('viewMenuKedaiName').textContent = restaurantName;
-            
-            const addMenuButton = document.getElementById('addMenuFromViewModal');
-            addMenuButton.onclick = () => {
-                 closeModal('viewMenuModal');
-                 openMenuFormForRestaurant(restaurantId, restaurantName);
-            };
-
-            let filteredMenus = Object.values(MENUS).filter(m => m.restaurantId === restaurantId);
-            
-            if (filteredMenus.length === 0) {
-                 listContainer.innerHTML = `<p style="text-align: center; color: #999;">Kedai ini belum memiliki menu. Silakan tambahkan!</p>`;
-                openModal('viewMenuModal', '');
+            listContainer.innerHTML = ''; // Pastikan container dikosongkan
+        
+            if (menuList.length === 0) {
+                listContainer.innerHTML = `<p style="text-align: center; color: #999;">Menu tidak ditemukan!</p>`;
                 return;
             }
-
-            filteredMenus.sort((a, b) => a.name.localeCompare(b.name));
+        
+            // Tetap urutkan berdasarkan nama untuk konsistensi tampilan
+            menuList.sort((a, b) => a.name.localeCompare(b.name));
             
-            filteredMenus.forEach(m => {
+            menuList.forEach(m => {
+                const score = m.popularityScore || 0;
+                
                 const item = document.createElement('div');
-                item.className = 'menu-gallery-item'; 
+                item.className = 'menu-gallery-item';
                 
                 item.innerHTML = `
-                    <img src="${m.image || DEFAULT_MENU_IMAGE}" alt="${m.name}">
+                    <div class="menu-image-container">
+                        <img src="${m.image || DEFAULT_MENU_IMAGE}" alt="${m.name}">
+                        <span class="popularity-score-badge">
+                            ⭐ ${score}
+                        </span>
+                    </div>
                     <div class="content">
                         <h4 style="font-size: 13px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${m.name}</h4>
                         <p style="color: #4CAF50; font-weight: 600; margin-bottom: 5px;">Rp ${formatRupiah(m.price)}</p>
                         <p style="color: #999; margin-bottom: 8px; font-size: 10px;"><i class="fas fa-tag"></i> Kategori: ${m.category?.join(', ') || 'Lain-lain'}</p>
                         
                         <button class="btn-secondary btn-sm" onclick="editMenu('${m.id}')"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn-danger btn-sm" onclick="deleteMenu('${m.id}', '${m.name}', '${restaurantId}', '${restaurantName}')"><i class="fas fa-trash"></i> Hapus</button>
+                        <button class="btn-danger btn-sm" onclick="deleteMenu('${m.id}', '${m.name}', '${m.restaurantId}', '${RESTAURANTS[m.restaurantId]?.name}')"><i class="fas fa-trash"></i> Hapus</button>
                     </div>
                 `;
                 listContainer.appendChild(item);
             });
+        };
+        // --- MODIFIKASI: FUNGSI UTAMA UNTUK MEMBUKA MODAL MENU ---
+        window.viewRestaurantMenus = (restaurantId, restaurantName) => {
+            // Reset dan inisialisasi
+            const listContainer = document.getElementById('viewMenuItemsList');
+            listContainer.innerHTML = '';
+            document.getElementById('viewMenuKedaiName').textContent = restaurantName;
+            document.getElementById('menuSearchInput').value = ''; // 👈 Bersihkan kolom pencarian
+        
+            const addMenuButton = document.getElementById('addMenuFromViewModal');
+            addMenuButton.onclick = () => {
+                closeModal('viewMenuModal');
+                openMenuFormForRestaurant(restaurantId, restaurantName);
+            };
+        
+            let filteredMenus = Object.values(MENUS).filter(m => m.restaurantId === restaurantId);
+            CURRENT_VIEW_MENUS = filteredMenus; // 👈 Simpan daftar lengkap
+        
+            if (filteredMenus.length === 0) {
+                listContainer.innerHTML = `<p style="text-align: center; color: #999;">Kedai ini belum memiliki menu. Silakan tambahkan!</p>`;
+                openModal('viewMenuModal', '');
+                return;
+            }
+        
+            // Panggil fungsi rendering dengan daftar lengkap (unfiltered)
+            renderFilteredMenus(CURRENT_VIEW_MENUS); 
             
             openModal('viewMenuModal', '');
+        };
+        
+        
+        // --- FUNGSI BARU: PENCARIAN MENU ---
+        window.searchMenu = () => {
+            const searchTerm = document.getElementById('menuSearchInput').value.toLowerCase().trim();
+            
+            // Jika tidak ada menu dimuat (CURRENT_VIEW_MENUS kosong), hentikan
+            if (CURRENT_VIEW_MENUS.length === 0) return;
+        
+            let filtered = CURRENT_VIEW_MENUS;
+        
+            if (searchTerm) {
+                // Filter menu yang sedang dilihat berdasarkan nama
+                filtered = CURRENT_VIEW_MENUS.filter(m => m.name.toLowerCase().includes(searchTerm));
+            }
+        
+            // Render hasil pencarian
+            renderFilteredMenus(filtered);
         };
         
         // --- FUNGSI BARU: TAMPILKAN DAFTAR GALERI DI MODAL ---
@@ -1636,6 +1733,7 @@
         };
 
 
+        // ...
         // --- Inisialisasi ---
         document.addEventListener('DOMContentLoaded', () => {
             setInterval(updateWibTimeDisplay, 1000); 
@@ -1648,11 +1746,19 @@
             });
             
             fetchAllData();
-
+        
             document.getElementById('statusModeSelect').value = 'auto';
             document.getElementById('manualStatusToggle').checked = true; 
             document.getElementById('manualStatusActualValue').value = 'open';
             toggleManualControls('auto');
+            
+            // 🟢 TAMBAHKAN KODE INI DI SINI 🟢
+            // Event Listener untuk Kolom Pencarian Menu
+            const searchInput = document.getElementById('menuSearchInput');
+            if (searchInput) {
+                searchInput.addEventListener('input', window.searchMenu);
+            }
+            // ------------------------------------
             
             // Atur default active section ke Daftar Kedai
             showSection('restaurantList', document.querySelector('.nav-btn[onclick="showSection(\'restaurantList\', this)"]'));
